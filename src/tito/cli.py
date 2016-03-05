@@ -174,9 +174,12 @@ class ConfigLoader(object):
 
 def lookup_build_dir(user_config):
     """
-    Read build_dir user config if it exists, otherwise
-    return the current working directory.
+    Read build_dir from environment($RPMBUILD_BASEDIR) or from user config if
+    it exists, otherwise return the DEFAULT_BUILD_DIR.
     """
+    build_dir = os.getenv('RPMBUILD_BASEDIR')
+    if build_dir:
+      return build_dir
     build_dir = DEFAULT_BUILD_DIR
 
     if 'RPMBUILD_BASEDIR' in user_config:
