@@ -906,8 +906,13 @@ def get_commit_count(tag, commit_id):
     #     return 0
     # else:
     #     parse the count from the output
-    (status, output) = getstatusoutput(
-        "git describe --match=%s %s" % (tag, commit_id))
+    try:
+        (status, output) = getstatusoutput(
+            "git describe --match=%s %s" % (tag, commit_id))
+    except Exception as e:
+        # maybe a bad tag - try with --tags
+        (status, output) = getstatusoutput(
+            "git describe --tags --match=%s %s" % (tag, commit_id))
 
     debug("tag - %s" % tag)
     debug("output - %s" % output)
