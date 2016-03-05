@@ -203,7 +203,7 @@ class BugzillaExtractor(object):
         return filtered_bzs
 
     def _load_bug(self, bug_id):
-        bugzilla = RHBugzilla(url='https://bugzilla.redhat.com/xmlrpc.cgi')
+        bugzilla = RHBugzilla(url='https://bugzilla.suse.com/xmlrpc.cgi')
         return bugzilla.getbug(bug_id, include_fields=['id', 'flags'])
 
 
