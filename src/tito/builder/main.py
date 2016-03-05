@@ -555,6 +555,14 @@ class Builder(ConfigObject, BuilderBase):
         self.spec_file = os.path.join(
             self.rpmbuild_gitcopy, self.spec_file_name)
 
+        # copy rpmlintrc file from archive into the source dir
+        # otherwise build would fail
+        rpmlintrc = "%s-rpmlintrc" % self.spec_file[0:-5]
+        if os.path.exists(rpmlintrc):
+            run_command("cp %s %s" % (rpmlintrc, self.rpmbuild_sourcedir))
+            self.artifacts.append(os.path.join(self.rpmbuild_sourcedir, os.path.basename(rpmlintrc)))
+
+
     def _setup_test_specfile(self):
         if self.test and not self.ran_setup_test_specfile:
             # If making a test rpm we need to get a little crazy with the spec
