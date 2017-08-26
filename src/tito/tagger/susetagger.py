@@ -52,61 +52,43 @@ class SUSETagger(VersionTagger):
             debug("Skipping changelog generation.")
             return
 
+        newname = self.changes_file + ".new"
         in_f = open(self.changes_file, 'r')
-        out_f = open(self.changes_file + ".new", 'w')
-
+        out_f = open(newname, 'w')
 
         old_version = get_latest_tagged_version(self.project_name)
 
+        output = self._new_changelog_msg
         # don't die if this is a new package with no history
         if old_version != None:
             last_tag = "%s-%s" % (self.project_name, old_version)
-            output = self._generate_default_changelog(last_tag)
-        else:
-            output = self._new_changelog_msg
+            if self._no_default_changelog:
+                output = ""
+            else:
+                output = self._generate_default_changelog(last_tag)
 
-        fd, name = tempfile.mkstemp()
-        os.write(fd, "# Create your changelog entry below:\n")
         header = "-------------------------------------------------------------------\n"
         header = header + "%s - %s\n\n" % (self.today, self.git_email)
 
-        os.write(fd, header)
+        out_f.write(header)
 
         for cmd_out in output.split("\n"):
-            os.write(fd, "- ")
-            os.write(fd, "\n  ".join(textwrap.wrap(cmd_out, 77)))
-            os.write(fd, "\n")
+            out_f.write("- ")
+            out_f.write("\n  ".join(textwrap.wrap(cmd_out, 77)))
+            out_f.write("\n")
 
-        os.write(fd, "\n")
+        out_f.write("\n")
+
+        for line in in_f.readlines():
+            out_f.write(line)
+        out_f.flush()
 
         if not self._accept_auto_changelog:
-            os.write(fd, "###################################################\n")
-            os.write(fd, "# These are the already existing changelog entries:\n")
-            os.write(fd, "###################################################\n")
-            for line in in_f.readlines():
-                os.write(fd, "#" + line)
-            in_f.seek(0, 0)
-
             # Give the user a chance to edit the generated changelog:
             editor = 'vi'
             if "EDITOR" in os.environ:
                 editor = os.environ["EDITOR"]
-            subprocess.call([editor, name])
-
-        os.lseek(fd, 0, 0)
-        file = os.fdopen(fd)
-
-        for line in file.readlines():
-            if not line.startswith("#"):
-                out_f.write(line)
-
-        output = file.read()
-
-        file.close()
-        os.unlink(name)
-
-        for line in in_f.readlines():
-             out_f.write(line)
+            subprocess.call([editor, newname])
 
         in_f.close()
         out_f.close()

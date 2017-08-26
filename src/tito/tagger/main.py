@@ -77,6 +77,7 @@ class VersionTagger(ConfigObject):
             self.git_user, git_email.replace("+", "\+").replace(".", "\.")))
 
         self._no_auto_changelog = False
+        self._no_default_changelog = False
         self._accept_auto_changelog = False
         self._new_changelog_msg = "new package built with tito"
         self._changelog = None
@@ -94,6 +95,8 @@ class VersionTagger(ConfigObject):
                 " 'tito tag' will accomplish the same thing.")
         if options.no_auto_changelog:
             self._no_auto_changelog = True
+        if options.no_default_changelog:
+            self._no_default_changelog = True
         if options.accept_auto_changelog:
             self._accept_auto_changelog = True
         if options.auto_changelog_msg:

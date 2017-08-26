@@ -633,6 +633,9 @@ class TagModule(BaseCliModule):
                 default=False,
                 help=("Don't automatically create a changelog "
                     "entry for this tag if none is found"))
+        self.parser.add_option("--no-default-changelog", action="store_true",
+                default=False,
+                help=("Don't create the changelog entries but write the header"))
         self.parser.add_option("--accept-auto-changelog", action="store_true",
                 default=False,
                 help=("Automatically accept the generated changelog."))
@@ -660,6 +663,9 @@ class TagModule(BaseCliModule):
                 "block_tagging"):
             debug("block_tagging defined in tito.props")
             error_out("Tagging has been disabled in this git branch.")
+        if (self.config.has_option(BUILDCONFIG_SECTION, "no_default_changelog")
+            and self.config.get(BUILDCONFIG_SECTION, "no_default_changelog") == '1'):
+            self.options.no_default_changelog = True
 
         tagger_class = get_class_by_name(self.config.get(
             BUILDCONFIG_SECTION, DEFAULT_TAGGER))
