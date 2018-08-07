@@ -5,6 +5,7 @@
 
 from tito.builder.main import \
     Builder, \
+    GitExtraGenerationBuilder, \
     NoTgzBuilder, \
     GemBuilder, \
     UpstreamBuilder, \

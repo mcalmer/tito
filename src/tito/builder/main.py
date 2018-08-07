@@ -613,6 +613,63 @@ class Builder(ConfigObject, BuilderBase):
             version = self.build_version.split("-")[0]
         return version
 
+class GitExtraGenerationBuilder(Builder):
+
+    def _setup_sources(self):
+
+        # Can we rely that this proccess is bullet proof? What if it's fail in the middle of a git command?
+        # We can either try to improve the handling of errors or print all the commands in case we need to clean something manually
+
+        # ugly trick to overcome a git limitation, we have to make sure the git stash has content so the git stash pop work as expected
+        generate_fake_content_to_stash = "touch titogitgeneratedbuilderlocalfilesbackup.stash"
+        run_command(generate_fake_content_to_stash, True)
+
+        stash_all_locale_changes = "git stash -u"
+        run_command(stash_all_locale_changes, True)
+
+        checkout_base_commit = "git checkout %s" % self.git_commit_id
+        run_command(checkout_base_commit, True)
+
+        setup_execution_file_name = "setup.sh"
+        setup_file_path = os.path.join(self.git_root, self.relative_project_dir, setup_execution_file_name)
+        if os.path.exists(setup_file_path):
+            run_command("[[ -x %s ]] && ./%s" % (setup_execution_file_name, setup_execution_file_name), True)
+
+        gitgeneratedbuilder_filename = "tito.gitgeneratedbuilder.include"
+        gitgeneratedbuilder_filename_path = os.path.join(self.git_root, self.relative_project_dir, gitgeneratedbuilder_filename)
+        if os.path.exists(gitgeneratedbuilder_filename_path):
+            generated_files_to_include = map(lambda x : x.strip(), run_command("cat %s" % gitgeneratedbuilder_filename).split(","))
+            for file_to_include in generated_files_to_include:
+                run_command("git add %s" % file_to_include, True)
+
+        commit_all_generated_files = "git commit --allow-empty -m '[TEMPORARY COMMIT] generated files to include on zip'";
+        run_command(commit_all_generated_files, True)
+
+        self.git_commit_id = run_command("git rev-parse HEAD", True)
+
+        Builder._setup_sources(self)
+
+    def cleanup(self):
+        # This cleanup needs a better error handling... if something fails in the middle of the creation we are screwed here
+
+        clean_unnecessary_files = "git reset --hard && git clean -f -d"
+        run_command(clean_unnecessary_files, True)
+
+        reset_generated_files_fake_commit = "git reset --hard HEAD^"
+        run_command(reset_generated_files_fake_commit)
+
+        checkout_to_base_commit = "git checkout -"
+        run_command(checkout_to_base_commit)
+
+        pop_initial_stashed_changes = "git stash pop"
+        run_command(pop_initial_stashed_changes, True)
+
+        remove_fake_content_to_stash = "rm -f titogitgeneratedbuilderlocalfilesbackup.stash"
+        run_command(remove_fake_content_to_stash, True)
+
+        Builder.cleanup(self)
+
+
 
 class NoTgzBuilder(Builder):
     """
