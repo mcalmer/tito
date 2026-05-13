@@ -626,7 +626,7 @@ class TagModule(BaseCliModule):
                     "specified in spec file to tag package."))
         self.parser.add_option("--use-version", dest="use_version",
                 help=("Update the spec file with the specified version."))
-        self.parser.add_option("--use-release", dest="use_release",
+        self.parser.add_option("--use-release", dest="use_release", default="0",
                 help=("Update the spec file with the specified release."))
 
         self.parser.add_option("--no-auto-changelog", action="store_true",
