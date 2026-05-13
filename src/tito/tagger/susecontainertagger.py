@@ -20,7 +20,8 @@ except ImportError:
 from tito.tagger import SUSETagger
 
 from tito.common import (error_out, get_latest_tagged_version,
-                         increase_version, reset_release, increase_zstream, info_out, get_spec_version_and_release)
+                         increase_version, reset_release, increase_zstream, info_out, get_spec_version_and_release,
+                         find_image_like_file, run_command)
 
 
 class SUSEContainerTagger(SUSETagger):
@@ -28,6 +29,7 @@ class SUSEContainerTagger(SUSETagger):
         SUSETagger.__init__(self, config=config, keep_version=keep_version, offline=offline, user_config=user_config)
         self.changes_file_name = f"{self.project_name}.changes"
         self.changes_file = os.path.join(self.full_project_dir, self.changes_file_name)
+        self.image_files = find_image_like_file(self.full_project_dir)
 
     def _bump_version(self, release=False, zstream=False):
         """
@@ -38,58 +40,64 @@ class SUSEContainerTagger(SUSETagger):
         Checks for the keep version option and if found, won't actually
         bump the version or release.
         """
+        if not self.image_files:
+            error_out("No image files found")
+            return
         old_version = get_latest_tagged_version(self.project_name)
         if old_version is None:
             old_version = "untagged"
-        if not self.keep_version:
+        for image_file in self.image_files:
+            if not self.keep_version:
 
-            version_prefix = ""
-            if os.path.split(self.spec_file_name)[-1] == "Chart.yaml":
-                version_prefix = "version:"
-                version_release_regex = re.compile(rf"^({version_prefix}\s*)(.+)$", re.IGNORECASE)
-            elif os.path.split(self.spec_file_name)[-1] == "Dockerfile":
-                version_prefix = "LABEL org.opencontainers.image.version="
-                version_release_regex = re.compile(rf"^({version_prefix}\s*)(.+)$", re.IGNORECASE)
-            elif os.path.split(self.spec_file_name)[-1].endswith(".kiwi"):
-                version_release_regex = re.compile(r'^\s*<label name="org\.opencontainers\.image\.version" value="(.+)"/>\s*$')
+                version_prefix = ""
+                if os.path.split(image_file)[-1] == "Chart.yaml":
+                    version_prefix = "version:"
+                    version_release_regex = re.compile(rf"^({version_prefix}\s*)(.+)$", re.IGNORECASE)
+                elif os.path.split(image_file)[-1].startswith("Dockerfile"):
+                    version_prefix = "LABEL org.opencontainers.image.version="
+                    version_release_regex = re.compile(rf"^({version_prefix}\s*)(.+)$", re.IGNORECASE)
+                elif os.path.split(image_file)[-1].endswith(".kiwi"):
+                    version_release_regex = re.compile(r'^\s*<label name="org\.opencontainers\.image\.version" value="(.+)"/>\s*$')
 
 
-            in_f = open(self.spec_file, 'r')
-            out_f = open(self.spec_file + ".new", 'w')
-            new_version = None
-            old_version = None
-            lines = []
+                in_f = open(image_file, 'r')
+                out_f = open(image_file + ".new", 'w')
+                new_version = None
+                old_version = None
+                lines = []
 
-            for line in in_f.readlines():
-                version_match = re.match(version_release_regex, line)
+                for line in in_f.readlines():
+                    version_match = re.match(version_release_regex, line)
 
-                if version_match and not zstream and not release:
-                    current_version = version_match.group(2)
-                    old_version = current_version
-                    release = None
-                    if len(current_version.split("-")) >= 2:
-                        (current_version, release) = current_version.split("-")
+                    if version_match and not zstream and not release:
+                        current_version = version_match.group(2)
+                        old_version = current_version
+                        release = None
+                        if len(current_version.split("-")) >= 2:
+                            (current_version, release) = current_version.split("-")
 
-                    if hasattr(self, '_use_version'):
-                        new_version = self._use_version
-                    else:
-                        new_version = increase_version(current_version)
+                        if hasattr(self, '_use_version'):
+                            new_version = self._use_version
+                        else:
+                            new_version = increase_version(current_version)
 
-                    if release:
-                        new_version = f"{new_version}-{release}"
-                    line = "".join([version_match.group(1), new_version, "\n"])
+                        if release:
+                            new_version = f"{new_version}-{release}"
+                        line = "".join([version_match.group(1), new_version, "\n"])
 
-                lines.append(line)
+                    lines.append(line)
 
-            new_file_content = "".join(lines)
+                new_file_content = "".join(lines)
 
-            out_f.write(new_file_content)
+                out_f.write(new_file_content)
 
-            in_f.close()
-            out_f.close()
-            shutil.move(self.spec_file + ".new", self.spec_file)
+                in_f.close()
+                out_f.close()
+                shutil.move(image_file + ".new", image_file)
+                run_command("git add %s" % os.path.join(self.full_project_dir, os.path.basename(image_file)))
 
-        new_version = get_spec_version_and_release(self.full_project_dir, self.spec_file_name)
+        image_name = os.path.basename(self.image_files[0])
+        new_version = get_spec_version_and_release(self.full_project_dir, image_name)
         if new_version.strip() == "":
             msg = "Error getting bumped package version"
             error_out(msg)
