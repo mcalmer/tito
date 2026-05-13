@@ -377,7 +377,11 @@ class VersionTagger(ConfigObject):
         run_command("mvn %s versions:set -DnewVersion=%s -DgenerateBackupPoms=false" % (
             " ".join(maven_args),
             mvn_new_version))
-        run_command("git add %s" % pom_file)
+
+        # Find and add all modified pom (main one and those from any existing sub-module)
+        modified_poms = run_command("git ls-files --modified pom.xml */pom.xml")
+        for modified_pom_file in  modified_poms.splitlines():
+            run_command("git add %s" % modified_pom_file)
 
     def _update_dependencies_rhn_conf(self):
         for section in self.config.sections():
