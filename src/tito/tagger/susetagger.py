@@ -10,6 +10,7 @@
 Code for tagging packages in SUSE Style.
 """
 import os
+from glob import glob
 import re
 import sys
 try:
@@ -48,7 +49,45 @@ class SUSETagger(VersionTagger):
         if self.remote == "":
             print("ERROR: Your current branch does not track a remote branch!")
             sys.exit(1)
-            
+
+
+    def _compile_changelog(self):
+        """
+        Compile feature changelogs (.changes.*) into a single file (.changes)
+        """
+        # Collect feature changelogs
+        # Standard filename format: <package>.changes.<author>.<feature>
+        chfiles = glob(self.changes_file + '.*')
+
+        if not chfiles:
+            # No compilation needed
+            return
+
+        tmpname = self.changes_file + ".tmp"
+        out_f = open(tmpname, 'w')
+
+        for file in chfiles:
+            with open(file, 'r') as in_f:
+                for line in in_f.readlines():
+                    if not line.endswith('\n'):
+                        line = line + '\n'
+                    out_f.write(line)
+
+        # Append the entries from the previous versions
+        with open(self.changes_file, 'r') as in_f:
+            line = in_f.readline()
+            if re.match(r'^-{8,}$', line):
+                out_f.write('\n')
+            out_f.write(line)
+            for line in in_f.readlines():
+                out_f.write(line)
+
+        out_f.flush()
+        shutil.move(self.changes_file + ".tmp", self.changes_file)
+
+        # Delete feature changelogs
+        run_command('git rm %s' % ' '.join(chfiles))
+
 
     def _make_changelog(self):
         """
@@ -57,6 +96,9 @@ class SUSETagger(VersionTagger):
         if self._no_auto_changelog:
             debug("Skipping changelog generation.")
             return
+
+        # Compile feature changelogs into the master changelog file
+        self._compile_changelog()
 
         newname = self.changes_file + ".new"
         in_f = open(self.changes_file, 'r')
@@ -176,4 +218,3 @@ class SUSETagger(VersionTagger):
         print("   Undo: tito tag -u")
         print("   Push: git push {0} HEAD && git push {0} {1}".format(self.remote, new_tag))
         print("or Push: git push {0} HEAD && git push {0} --tags".format(self.remote))
-
