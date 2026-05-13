@@ -11,6 +11,7 @@ Code for tagging packages in SUSE Style.
 """
 import os
 import re
+import sys
 try:
     from StringIO import StringIO
 except ImportError:
@@ -43,6 +44,11 @@ class SUSETagger(VersionTagger):
                 self.changes_file_name)
         self._new_changelog_msg = "Initial package release"
         self.changelog_regex = re.compile('^%s\s-\s%s' % (self.today, self.git_email))
+        self.remote = run_command(" git for-each-ref --format='%(upstream:short)' \"$(git symbolic-ref -q HEAD)\"").split('/')[0]
+        if self.remote == "":
+            print("ERROR: Your current branch does not track a remote branch!")
+            sys.exit(1)
+            
 
     def _make_changelog(self):
         """
@@ -168,6 +174,6 @@ class SUSETagger(VersionTagger):
         print("Created tag: %s" % new_tag)
         print("   View: git show HEAD")
         print("   Undo: tito tag -u")
-        print("   Push: git push origin HEAD && git push origin %s" % new_tag)
-        print("or Push: git push origin HEAD && git push origin --tags")
+        print("   Push: git push {0} HEAD && git push {0} {1}".format(self.remote, new_tag))
+        print("or Push: git push {0} HEAD && git push {0} --tags".format(self.remote))
 
