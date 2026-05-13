@@ -17,6 +17,8 @@ class zStreamTagger(VersionTagger):
         new_version = self._bump_version(release=True)
 
         self._check_tag_does_not_exist(self._get_new_tag(new_version))
+        self._update_dependencies()
+        self._update_dependencies_rhn_conf()
         self._update_changelog(new_version)
         self._update_package_metadata(new_version)
 

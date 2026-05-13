@@ -137,6 +137,8 @@ class VersionTagger(ConfigObject):
         self._make_changelog()
         new_version = self._bump_version()
         self._check_tag_does_not_exist(self._get_new_tag(new_version))
+        self._update_dependencies()
+        self._update_dependencies_rhn_conf()
         self._update_changelog(new_version)
         CargoBump.tag_new_version(self.full_project_dir, new_version)
         self._update_setup_py(new_version)
@@ -376,6 +378,99 @@ class VersionTagger(ConfigObject):
             " ".join(maven_args),
             mvn_new_version))
         run_command("git add %s" % pom_file)
+
+    def _update_dependencies_rhn_conf(self):
+        for section in self.config.sections():
+            if not section.endswith(".conf"):
+                debug("section '{}' seems not to be a config file. Skipping".format(section))
+                continue
+            conf_file = os.path.join(self.full_project_dir, section)
+            if not os.path.exists(conf_file):
+                warn_out("File not found: {}, skipping".format(conf_file))
+                continue
+            ver_regex = re.compile("([\w._-]+)(\s*)(=)(\s*)([\w.-]+)(.*)", re.IGNORECASE)
+            for key, value in self.config.items(section):
+                buf = StringIO()
+                with open(conf_file, 'r') as in_f:
+                    for line in in_f.readlines():
+                        m = ver_regex.match(line)
+                        if m and m.group(1) == key:
+                            result_tuple = list(m.group(1, 2, 3, 4))
+                            result_tuple.append(value)
+                            result_tuple.append(m.group(6))
+                            new_line = "%s%s%s%s%s%s\n" % tuple(result_tuple)
+                            buf.write(new_line)
+                        else:
+                            buf.write(line)
+
+                with open(conf_file, 'w') as out_f:
+                    out_f.write(buf.getvalue())
+                buf.close()
+            run_command("git add %s" % conf_file)
+
+        # Legacy configuration format
+        if not self.config.has_section("dbschema"):
+            return
+        ver_regex = re.compile("(.*)(min_schema_version)(\s*)(=)(\s*)([\w.-]+)(.*)", re.IGNORECASE)
+        conf_file = ""
+        for f in self.config.options("dbschema"):
+            version = self.config.get("dbschema", f)
+            conf_file = os.path.join(self.full_project_dir, f)
+            if not os.path.exists(conf_file):
+                debug("File not found: {}".format(conf_file))
+                continue
+
+            buf = StringIO()
+            with open(conf_file, 'r') as in_f:
+                for line in in_f.readlines():
+                    m = ver_regex.match(line)
+                    if m:
+                        result_tuple = list(m.group(1, 2, 3, 4, 5))
+                        result_tuple.append(version)
+                        result_tuple.append(m.group(7))
+                        new_line = "%s%s%s%s%s%s%s\n" % tuple(result_tuple)
+                        buf.write(new_line)
+                    else:
+                        buf.write(line)
+
+            with open(conf_file, 'w') as out_f:
+                out_f.write(buf.getvalue())
+            buf.close()
+            run_command("git add %s" % conf_file)
+
+    def _update_dependencies(self):
+        if not any(elem in self.config.sections()  for elem in ["requires", "buildrequires"]):
+            return
+
+        require_regex = re.compile("^(requires:\s*)(.+)$", re.IGNORECASE)
+        buildrequire_regex = re.compile("^(buildrequires:\s*)(.+)$", re.IGNORECASE)
+        specfile = []
+        with open(self.spec_file, 'r') as in_f:
+            specfile = in_f.readlines()
+
+
+        if self.config.has_section("requires"):
+            for pkg in self.config.options("requires"):
+                version = self.config.get("requires", pkg)
+                specfile = self._change_spec(specfile, require_regex, pkg, version)
+        if self.config.has_section("buildrequires"):
+            for pkg in self.config.options("buildrequires"):
+                version = self.config.get("buildrequires", pkg)
+                specfile = self._change_spec(specfile, buildrequire_regex, pkg, version)
+
+
+        with open(self.spec_file + ".new", 'w') as out_f:
+            for line in specfile:
+                out_f.write(line)
+        shutil.move(self.spec_file + ".new", self.spec_file)
+
+
+    def _change_spec(self, specfile, regex, pkg, version):
+        for i, line in enumerate(specfile):
+            m = re.match(regex, line)
+            if m and m.group(2).startswith(pkg):
+                specfile[i] = "".join([m.group(1), pkg, " >= ", version, "\n"])
+        return specfile
 
     def _bump_version(self, release=False, zstream=False):
         """
@@ -663,6 +758,8 @@ class ReleaseTagger(VersionTagger):
         new_version = self._bump_version(release=bump_release)
 
         self._check_tag_does_not_exist(self._get_new_tag(new_version))
+        self._update_dependencies()
+        self._update_dependencies_rhn_conf()
         self._update_changelog(new_version)
         self._update_package_metadata(new_version)
 
