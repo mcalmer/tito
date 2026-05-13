@@ -653,10 +653,12 @@ class VersionTagger(ConfigObject):
         return self._get_tag_for_version(suffixed_version, release)
 
     def _get_release(self, version_and_release):
-        return version_and_release.split('-')[-1]
+        vr_split = version_and_release.split('-')
+        return vr_split[-1] if len(vr_split) >= 2 else ''
 
     def _get_version(self, version_and_release):
-        return version_and_release.split('-')[-2]
+        vr_split = version_and_release.split('-')
+        return vr_split[-2] if len(vr_split) >= 2 else vr_split[-1]
 
     def _get_suffixed_version(self, version):
         """ If global config specifies a tag suffix, use it """

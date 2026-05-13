@@ -348,7 +348,7 @@ def find_gemspec_file(in_dir=None):
 def find_spec_like_file(in_dir=None):
     if in_dir is None:
         in_dir = os.getcwd()
-    extension_list = ['.spec', '.spec.tmpl']
+    extension_list = ['.spec', '.spec.tmpl', 'Dockerfile', 'Chart.yaml', '.kiwi']
     for ext in extension_list:
         result = find_file_with_extension(in_dir, ext)
         if result:
@@ -638,6 +638,19 @@ def debug(text, cmd=None):
 
 
 def get_spec_version_and_release(sourcedir, spec_file_name):
+
+    if os.path.split(spec_file_name)[-1] == "Chart.yaml":
+        line_to_match_version = "version: (.+)"
+        return get_semver_from_file(line_to_match_version, spec_file_name)
+
+    if os.path.split(spec_file_name)[-1] == "Dockerfile":
+        line_to_match_version = "LABEL org.opencontainers.image.version=(.+)"
+        return get_semver_from_file(line_to_match_version, spec_file_name)
+
+    if os.path.split(spec_file_name)[-1].endswith(".kiwi"):
+        line_to_match_version = '<label name="org.opencontainers.image.version" value="([^"]+)"/>'
+        return get_semver_from_file(line_to_match_version, spec_file_name)
+
     if os.path.splitext(spec_file_name)[1] == ".tmpl":
         return scrape_version_and_release(spec_file_name)
 
@@ -767,6 +780,26 @@ def scrape_version_and_release(template_file_name):
     return "%s-%s" % (version, release)
 
 
+def get_semver_from_file(line_to_match, file_name):
+
+    # Official Semver regex
+    # see https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+    semver_regex = re.compile(r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$")
+    semver = ""
+    line_regex = re.compile(line_to_match)
+    with open(file_name) as file:
+        for line in file:
+            line_match = re.match(line_regex, line)
+            if line_match:
+                semver = line_match.group(1)
+                break
+    if semver == "":
+        error_out("Could not find match to %s in %s" % (line_to_match, file_name))
+    if not semver_regex.match(semver):
+        error_out("Invalid version format at %s in %s" % (line_to_match, file_name))
+    return semver
+
+
 def scl_to_rpm_option(scl, silent=None):
     """ Returns rpm option which disable or enable SC and print warning if needed """
     rpm_options = ""
@@ -803,6 +836,34 @@ def get_project_name(tag=None, scl=None):
         return m.group(1)
     else:
         file_path = find_spec_like_file()
+
+        if os.path.split(file_path)[-1] == "Dockerfile":
+            name_regex = re.compile("^(LABEL org.opencontainers.image.name=\s*)(.+)$", re.IGNORECASE)
+            in_f = open(file_path, 'r')
+            for line in in_f.readlines():
+                name_match = re.match(name_regex, line)
+                if name_match:
+                    return name_match.group(2)
+            error_out("Dockerfile: %s does not contain the name label" % file_path)
+
+        if os.path.split(file_path)[-1] == "Chart.yaml":
+            name_regex = re.compile("^(name:\s*)(.+)$", re.IGNORECASE)
+            in_f = open(file_path, 'r')
+            for line in in_f.readlines():
+                name_match = re.match(name_regex, line)
+                if name_match:
+                    return name_match.group(2)
+            error_out("Chart.yaml: %s does not contain the name label" % file_path)
+
+        if os.path.split(file_path)[-1].endswith('.kiwi'):
+            name_regex = re.compile('^\s*<label name="org\.opencontainers\.image\.name" value="(.+)"/>\s*$')
+            in_f = open(file_path, 'r')
+            for line in in_f.readlines():
+                name_match = re.match(name_regex, line)
+                if name_match:
+                    return name_match.group(1)
+            error_out("kiwi file: %s does not contain the name label" % file_path)
+
         if not os.path.exists(file_path):
             error_out("spec file: %s does not exist" % file_path)
 
