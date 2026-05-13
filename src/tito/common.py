@@ -316,6 +316,27 @@ def find_file_with_extension(in_dir, suffix=None):
         return os.path.join(in_dir, file_name)
     return None
 
+def find_file_names_match(in_dir, match):
+    """ Find all files which names contains a given part in the current directory. """
+    file_names = []
+    debug("Looking for %s in %s" % (match, in_dir))
+    for f in os.listdir(in_dir):
+        if re.search(match, f):
+            file_names.append(os.path.join(in_dir, f))
+            debug("Found file: %s" % f)
+    return file_names
+
+def find_image_like_file(in_dir=None):
+    if in_dir is None:
+        in_dir = os.getcwd()
+    match_list = [r'^Dockerfile', r'^Chart.yaml$', r'.kiwi$']
+    for match in match_list:
+        result = find_file_names_match(in_dir, match)
+        if result:
+            return result
+    else:
+        error_out("Unable to locate files ending with %s in %s" % (list(match_list), in_dir))
+
 
 def find_spec_file(in_dir=None):
     """
@@ -348,13 +369,13 @@ def find_gemspec_file(in_dir=None):
 def find_spec_like_file(in_dir=None):
     if in_dir is None:
         in_dir = os.getcwd()
-    extension_list = ['.spec', '.spec.tmpl', 'Dockerfile', 'Chart.yaml', '.kiwi']
-    for ext in extension_list:
-        result = find_file_with_extension(in_dir, ext)
+    match_list = [r'.spec$', r'.spec.tmpl$', r'^Dockerfile', r'^Chart.yaml$', r'.kiwi$']
+    for match in match_list:
+        result = find_file_names_match(in_dir, match)
         if result:
-            return result
+            return result[0]
     else:
-        error_out("Unable to locate files ending with %s in %s" % (list(extension_list), in_dir))
+        error_out("Unable to locate files ending with %s in %s" % (list(match_list), in_dir))
 
 
 def find_cheetah_template_file(in_dir=None):
@@ -643,7 +664,7 @@ def get_spec_version_and_release(sourcedir, spec_file_name):
         line_to_match_version = "version: (.+)"
         return get_semver_from_file(line_to_match_version, spec_file_name)
 
-    if os.path.split(spec_file_name)[-1] == "Dockerfile":
+    if os.path.split(spec_file_name)[-1].startswith("Dockerfile"):
         line_to_match_version = "LABEL org.opencontainers.image.version=(.+)"
         return get_semver_from_file(line_to_match_version, spec_file_name)
 
@@ -837,7 +858,7 @@ def get_project_name(tag=None, scl=None):
     else:
         file_path = find_spec_like_file()
 
-        if os.path.split(file_path)[-1] == "Dockerfile":
+        if os.path.split(file_path)[-1].startswith("Dockerfile"):
             name_regex = re.compile("^(LABEL org.opencontainers.image.name=\s*)(.+)$", re.IGNORECASE)
             in_f = open(file_path, 'r')
             for line in in_f.readlines():
