@@ -67,19 +67,18 @@ class SUSETagger(VersionTagger):
             else:
                 output = self._generate_default_changelog(last_tag)
 
-        header = "-------------------------------------------------------------------\n"
-        header = header + "%s - %s\n\n" % (self.today, self.git_email)
+        header_separator = "-------------------------------------------------------------------\n"
+        header = header_separator + "%s - %s\n\n" % (self.today, self.git_email)
 
         out_f.write(header)
 
-        for cmd_out in output.split("\n"):
-            out_f.write("- ")
-            out_f.write("\n  ".join(textwrap.wrap(cmd_out, 77)))
-            out_f.write("\n")
-
-        out_f.write("\n")
-
+        end_identation = False
         for line in in_f.readlines():
+            if line == header_separator:
+                end_identation = True
+            if not end_identation:
+                line = re.sub('^\s\s', '    ', line)
+                line = re.sub('^- ', '  * ', line)
             out_f.write(line)
         out_f.flush()
 
