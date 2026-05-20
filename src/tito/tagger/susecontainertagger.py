@@ -46,6 +46,7 @@ class SUSEContainerTagger(SUSETagger):
         old_version = get_latest_tagged_version(self.project_name)
         if old_version is None:
             old_version = "untagged"
+        image_name = ""
         for image_file in self.image_files:
             if not self.keep_version:
 
@@ -84,6 +85,8 @@ class SUSEContainerTagger(SUSETagger):
                         if release:
                             new_version = f"{new_version}-{release}"
                         line = "".join([version_match.group(1), new_version, "\n"])
+                        if not image_name:
+                            image_name = os.path.basename(image_file)
 
                     lines.append(line)
 
@@ -96,7 +99,6 @@ class SUSEContainerTagger(SUSETagger):
                 shutil.move(image_file + ".new", image_file)
                 run_command("git add %s" % os.path.join(self.full_project_dir, os.path.basename(image_file)))
 
-        image_name = os.path.basename(self.image_files[0])
         new_version = get_spec_version_and_release(self.full_project_dir, image_name)
         if new_version.strip() == "":
             msg = "Error getting bumped package version"

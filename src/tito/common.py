@@ -81,7 +81,7 @@ def extract_sources(spec_file_lines):
     location as the spec file, mostly used with NoTgzBuilder packages.
     """
     filenames = []
-    source_pattern = re.compile('^Source\d+?:\s*(.*)')
+    source_pattern = re.compile(r'^Source\d+?:\s*(.*)')
     for line in spec_file_lines:
         match = source_pattern.match(line)
         if match:
@@ -372,10 +372,15 @@ def find_spec_like_file(in_dir=None):
     match_list = [r'.spec$', r'.spec.tmpl$', r'^Dockerfile', r'^Chart.yaml$', r'.kiwi$']
     for match in match_list:
         result = find_file_names_match(in_dir, match)
-        if result:
-            return result[0]
-    else:
-        error_out("Unable to locate files ending with %s in %s" % (list(match_list), in_dir))
+        for fname in result:
+            if 'Dockerfile' in match:
+                name_regex = re.compile(r"^(LABEL org.opencontainers.image.name=\s*)(.+)$", re.IGNORECASE)
+                name_match = find_string_in_file(fname, name_regex)
+                if name_match:
+                    return fname
+            else:
+                return fname
+    error_out("Unable to locate files ending with %s in %s" % (list(match_list), in_dir))
 
 
 def find_cheetah_template_file(in_dir=None):
@@ -843,6 +848,17 @@ def scl_to_rpm_option(scl, silent=None):
         rpm_options += " --eval '%undefine scl'"
     return rpm_options
 
+def find_string_in_file(file_path, regex):
+    """
+    Find a string in file using a regex and return the match object
+    """
+    in_f = open(file_path, 'r')
+    for line in in_f.readlines():
+        name_match = re.match(regex, line)
+        if name_match:
+            return name_match
+    return None
+
 
 def get_project_name(tag=None, scl=None):
     """
@@ -850,7 +866,7 @@ def get_project_name(tag=None, scl=None):
     current working directory. Error out if neither is present.
     """
     if tag is not None:
-        p = re.compile('(.*?)-(\d.*)')
+        p = re.compile(r'(.*?)-(\d.*)')
         m = p.match(tag)
         if not m:
             error_out("Unable to determine project name in tag: %s" % tag)
@@ -859,30 +875,24 @@ def get_project_name(tag=None, scl=None):
         file_path = find_spec_like_file()
 
         if os.path.split(file_path)[-1].startswith("Dockerfile"):
-            name_regex = re.compile("^(LABEL org.opencontainers.image.name=\s*)(.+)$", re.IGNORECASE)
-            in_f = open(file_path, 'r')
-            for line in in_f.readlines():
-                name_match = re.match(name_regex, line)
-                if name_match:
-                    return name_match.group(2)
+            name_regex = re.compile(r"^(LABEL org.opencontainers.image.name=\s*)(.+)$", re.IGNORECASE)
+            name_match = find_string_in_file(file_path, name_regex)
+            if name_match:
+                return name_match.group(2)
             error_out("Dockerfile: %s does not contain the name label" % file_path)
 
         if os.path.split(file_path)[-1] == "Chart.yaml":
-            name_regex = re.compile("^(name:\s*)(.+)$", re.IGNORECASE)
-            in_f = open(file_path, 'r')
-            for line in in_f.readlines():
-                name_match = re.match(name_regex, line)
-                if name_match:
-                    return name_match.group(2)
+            name_regex = re.compile(r"^(name:\s*)(.+)$", re.IGNORECASE)
+            name_match = find_string_in_file(file_path, name_regex)
+            if name_match:
+                return name_match.group(2)
             error_out("Chart.yaml: %s does not contain the name label" % file_path)
 
         if os.path.split(file_path)[-1].endswith('.kiwi'):
-            name_regex = re.compile('^\s*<label name="org\.opencontainers\.image\.name" value="(.+)"/>\s*$')
-            in_f = open(file_path, 'r')
-            for line in in_f.readlines():
-                name_match = re.match(name_regex, line)
-                if name_match:
-                    return name_match.group(1)
+            name_regex = re.compile(r'^\s*<label name="org\.opencontainers\.image\.name" value="(.+)"/>\s*$')
+            name_match = find_string_in_file(file_path, name_regex)
+            if name_match:
+                return name_match.group(1)
             error_out("kiwi file: %s does not contain the name label" % file_path)
 
         if not os.path.exists(file_path):
@@ -912,7 +922,7 @@ def replace_version(line, new_version):
     whitespace, and optional use of single/double quotes.
     """
     # Mmmmm pretty regex!
-    ver_regex = re.compile("(\s*)(version)(\s*)(=)(\s*)(['\"])(.*)(['\"])(.*)",
+    ver_regex = re.compile(r"(\s*)(version)(\s*)(=)(\s*)(['\"])(.*)(['\"])(.*)",
             re.IGNORECASE)
     m = ver_regex.match(line)
     if m:
