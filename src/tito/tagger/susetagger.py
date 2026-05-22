@@ -44,7 +44,7 @@ class SUSETagger(VersionTagger):
         self.changes_file = os.path.join(self.full_project_dir,
                 self.changes_file_name)
         self._new_changelog_msg = "Initial package release"
-        self.changelog_regex = re.compile('^%s\s-\s%s' % (self.today, self.git_email))
+        self.changelog_regex = re.compile(r'^%s\s-\s%s' % (self.today, self.git_email))
         self.remote = run_command(" git for-each-ref --format='%(upstream:short)' \"$(git symbolic-ref -q HEAD)\"").split('/')[0]
         if self.remote == "":
             print("ERROR: Your current branch does not track a remote branch!")
@@ -153,7 +153,7 @@ class SUSETagger(VersionTagger):
         buf = StringIO()
         found_match = False
         done = False
-        empty_line_regex = re.compile('^\s*$')
+        empty_line_regex = re.compile(r'^\s*$')
 
         for line in f.readlines():
             if not done and not found_match and self.changelog_regex.match(line):
