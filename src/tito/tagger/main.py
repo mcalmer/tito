@@ -73,7 +73,7 @@ class VersionTagger(ConfigObject):
         git_email = self.git_email
         if git_email is None:
             git_email = ''
-        self.changelog_regex = re.compile('\\*\s%s\s%s(\s<%s>)?' % (self.today,
+        self.changelog_regex = re.compile(r'\\*\s%s\s%s(\s<%s>)?' % (self.today,
             self.git_user, git_email.replace("+", "\+").replace(".", "\.")))
 
         self._no_auto_changelog = False
@@ -392,7 +392,7 @@ class VersionTagger(ConfigObject):
             if not os.path.exists(conf_file):
                 warn_out("File not found: {}, skipping".format(conf_file))
                 continue
-            ver_regex = re.compile("([\w._-]+)(\s*)(=)(\s*)([\w.-]+)(.*)", re.IGNORECASE)
+            ver_regex = re.compile(r"([\w._-]+)(\s*)(=)(\s*)([\w.-]+)(.*)", re.IGNORECASE)
             for key, value in self.config.items(section):
                 buf = StringIO()
                 with open(conf_file, 'r') as in_f:
@@ -415,7 +415,7 @@ class VersionTagger(ConfigObject):
         # Legacy configuration format
         if not self.config.has_section("dbschema"):
             return
-        ver_regex = re.compile("(.*)(min_schema_version)(\s*)(=)(\s*)([\w.-]+)(.*)", re.IGNORECASE)
+        ver_regex = re.compile(r"(.*)(min_schema_version)(\s*)(=)(\s*)([\w.-]+)(.*)", re.IGNORECASE)
         conf_file = ""
         for f in self.config.options("dbschema"):
             version = self.config.get("dbschema", f)
@@ -446,8 +446,8 @@ class VersionTagger(ConfigObject):
         if not any(elem in self.config.sections()  for elem in ["requires", "buildrequires"]):
             return
 
-        require_regex = re.compile("^(requires:\s*)(.+)$", re.IGNORECASE)
-        buildrequire_regex = re.compile("^(buildrequires:\s*)(.+)$", re.IGNORECASE)
+        require_regex = re.compile(r"^(requires:\s*)(.+)$", re.IGNORECASE)
+        buildrequire_regex = re.compile(r"^(buildrequires:\s*)(.+)$", re.IGNORECASE)
         specfile = []
         with open(self.spec_file, 'r') as in_f:
             specfile = in_f.readlines()
@@ -489,8 +489,8 @@ class VersionTagger(ConfigObject):
         if old_version is None:
             old_version = "untagged"
         if not self.keep_version:
-            version_regex = re.compile("^(version:\s*)(.+)$", re.IGNORECASE)
-            release_regex = re.compile("^(release:\s*)(.+)$", re.IGNORECASE)
+            version_regex = re.compile(r"^(version:\s*)(.+)$", re.IGNORECASE)
+            release_regex = re.compile(r"^(release:\s*)(.+)$", re.IGNORECASE)
 
             in_f = open(self.spec_file, 'r')
             out_f = open(self.spec_file + ".new", 'w')
