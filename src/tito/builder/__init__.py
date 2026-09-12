@@ -15,3 +15,4 @@ from tito.builder.main import \
     MeadBuilder
 
 from tito.builder.fetch import FetchBuilder
+from tito.builder.dbschema import DatabaseSchemaBuilder

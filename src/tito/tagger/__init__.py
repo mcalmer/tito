@@ -10,3 +10,4 @@ from tito.tagger.zstreamtagger import zStreamTagger
 from tito.tagger.cargobump import CargoBump
 from tito.tagger.susetagger import SUSETagger
 from tito.tagger.susecontainertagger import SUSEContainerTagger
+from tito.tagger.dbschema import DatabaseSchemaTagger
