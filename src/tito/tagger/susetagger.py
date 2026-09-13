@@ -55,9 +55,9 @@ class SUSETagger(VersionTagger):
         """
         Compile feature changelogs (.changes.*) into a single file (.changes)
         """
-        # Collect feature changelogs
+        # Collect feature changelogs - sort my mtime - latest change on top
         # Standard filename format: <package>.changes.<author>.<feature>
-        chfiles = glob(self.changes_file + '.*')
+        chfiles = sorted(glob(self.changes_file + '.*'), key=os.path.getmtime, reverse=True)
 
         if not chfiles:
             # No compilation needed
